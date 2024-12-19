@@ -330,11 +330,13 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
                         )}
                       </button>
                     )}
-                    <div className="h-4 w-4 mr-1">
+                    <div className="h-4">
                       {node.type === "folder" ? (
-                        <Folder className="h-4 w-4 text-muted-foreground" />
+                        ""
                       ) : (
-                        <File className="h-4 w-4 text-muted-foreground" />
+                        <div className="mr-1">
+                          <File className="h-4 w-4 text-muted-foreground" />
+                        </div>
                       )}
                     </div>
                     <span
