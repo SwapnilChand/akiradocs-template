@@ -11,6 +11,7 @@ import { useRef, useCallback, useState } from 'react'
 import { BlockFormatToolbar } from '../editor/BlockFormatToolbar'
 import { toast } from 'sonner'
 import { rewriteBlockContent } from '@/lib/aiRewrite'
+import React from 'react'
 
 interface SortableBlockProps {
   block: {
@@ -35,12 +36,6 @@ interface SortableBlockProps {
       align?: 'left' | 'center' | 'right'
       type?: 'info' | 'warning' | 'success' | 'error'
       title?: string
-      buttonUrl?: string
-      buttonStyle?: {
-        variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link'
-        size?: 'default' | 'sm' | 'lg'
-        radius?: 'none' | 'sm' | 'md' | 'lg' | 'full'
-      }
     }
   }
   updateBlock: (id: string, content: string) => void
@@ -51,6 +46,7 @@ interface SortableBlockProps {
   isChangeTypeActive: boolean
   setActiveChangeTypeId: (id: string | null) => void
   updateBlockMetadata: (id: string, metadata: Partial<Block['metadata']>) => void
+  inputRef: React.RefObject<HTMLInputElement>
 }
 
 interface ImageBlockContent {
@@ -76,7 +72,8 @@ export function SortableBlock({
   showPreview,
   isChangeTypeActive,
   setActiveChangeTypeId,
-  updateBlockMetadata
+  updateBlockMetadata,
+  inputRef 
 }: SortableBlockProps) {
   const {
     attributes,
@@ -87,7 +84,6 @@ export function SortableBlock({
     isDragging,
   } = useSortable({ id: block.id })
 
-  const inputRef = useRef<HTMLDivElement>(null)
   const addBlockButtonRef = useRef<HTMLButtonElement>(null)
 
   const style = {
@@ -520,27 +516,13 @@ export function SortableBlock({
                   updateBlock(block.id, JSON.stringify(updatedContent));
                 }
               }}
-              showButtonControls={block.type === 'button'}
-              buttonMetadata={{
-                url: block.metadata?.buttonUrl,
-                style: block.metadata?.buttonStyle
-              }}
-              onButtonMetadataChange={(metadata) => {
-                updateBlockMetadata(block.id, {
-                  ...block.metadata,
-                  buttonUrl: metadata.buttonUrl,
-                  buttonStyle: {
-                    ...block.metadata?.buttonStyle,
-                    ...metadata.buttonStyle
-                  }
-                })
-              }}
             />
           )}
           <BlockRenderer 
             block={block} 
             isEditing={true}
             onUpdate={(id, content) => updateBlock(id, content)}
+            inputRef={inputRef}
           />
         </div>
 

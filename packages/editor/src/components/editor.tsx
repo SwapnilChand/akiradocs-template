@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
-import { BlockType } from '@/types/Block';
-import { Plus } from 'lucide-react';
-import { ArticleHeaders } from '@/components/blocks/ArticleHeaders';
-import { TitleBar } from '@/components/layout/TitleBar';
+import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { BlockType } from "@/types/Block";
+import { Plus } from "lucide-react";
+import { ArticleHeaders } from "@/components/blocks/ArticleHeaders";
+import { TitleBar } from "@/components/layout/TitleBar";
 import {
   DndContext,
   DragEndEvent,
@@ -14,14 +14,14 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
-} from '@dnd-kit/core';
+} from "@dnd-kit/core";
 import {
   SortableContext,
   arrayMove,
   verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { SortableBlock } from '@/components/blocks/SortableBlock';
-import { SEO } from '@/components/layout/SEO';
+} from "@dnd-kit/sortable";
+import { SortableBlock } from "@/components/blocks/SortableBlock";
+import { SEO } from "@/components/layout/SEO";
 
 type Block = {
   id: string;
@@ -36,8 +36,11 @@ interface EditorProps {
 
 export function Editor({ filePath }: EditorProps) {
   const [blocks, setBlocks] = useState<Block[]>([]);
-  const [title, setTitle] = useState('');
-  const [subtitle, setSubtitle] = useState('');
+  const [inputRefs, setInputRefs] = useState<
+    React.RefObject<HTMLInputElement>[]
+  >([]);
+  const [title, setTitle] = useState("");
+  const [subtitle, setSubtitle] = useState("");
   const [showPreview, setShowPreview] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -48,7 +51,7 @@ export function Editor({ filePath }: EditorProps) {
   useEffect(() => {
     const loadFileContent = async () => {
       if (!filePath) {
-        setBlocks([{ id: '1', type: 'paragraph', content: '', metadata: {} }]);
+        setBlocks([{ id: "1", type: "paragraph", content: "", metadata: {} }]);
         setIsLoading(false);
         return;
       }
@@ -57,18 +60,18 @@ export function Editor({ filePath }: EditorProps) {
         const response = await fetch(
           `/api/files?path=${encodeURIComponent(filePath)}`
         );
-        if (!response.ok) throw new Error('Failed to load file');
+        if (!response.ok) throw new Error("Failed to load file");
         const data = await response.json();
-        setTitle(data.title || '');
-        setSubtitle(data.description || '');
+        setTitle(data.title || "");
+        setSubtitle(data.description || "");
         setBlocks(
           data.blocks || [
-            { id: '1', type: 'paragraph', content: '', metadata: {} },
+            { id: "1", type: "paragraph", content: "", metadata: {} },
           ]
         );
       } catch (error) {
-        console.error('Error loading file:', error);
-        setBlocks([{ id: '1', type: 'paragraph', content: '', metadata: {} }]);
+        console.error("Error loading file:", error);
+        setBlocks([{ id: "1", type: "paragraph", content: "", metadata: {} }]);
       } finally {
         setIsLoading(false);
       }
@@ -79,7 +82,7 @@ export function Editor({ filePath }: EditorProps) {
 
   const handleSave = async () => {
     if (!filePath) {
-      console.error('No file path specified');
+      console.error("No file path specified");
       return;
     }
 
@@ -88,22 +91,22 @@ export function Editor({ filePath }: EditorProps) {
       const content = {
         title,
         description: subtitle,
-        author: 'Anonymous', // You might want to make this dynamic
-        date: new Date().toISOString().split('T')[0],
+        author: "Anonymous", // You might want to make this dynamic
+        date: new Date().toISOString().split("T")[0],
         blocks,
       };
 
-      const response = await fetch('/api/files', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/files", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path: filePath, content }),
       });
 
-      if (!response.ok) throw new Error('Failed to save file');
-      toast.success('Changes saved successfully');
+      if (!response.ok) throw new Error("Failed to save file");
+      toast.success("Changes saved successfully");
     } catch (error) {
-      console.error('Error saving file:', error);
-      toast.error('Failed to save changes');
+      console.error("Error saving file:", error);
+      toast.error("Failed to save changes");
     } finally {
       setIsSaving(false);
     }
@@ -112,33 +115,45 @@ export function Editor({ filePath }: EditorProps) {
   const addBlock = (afterId: string) => {
     const newBlock: Block = {
       id: Date.now().toString(),
-      type: 'paragraph',
-      content: '',
+      type: "paragraph",
+      content: "",
       metadata: {},
     };
 
-    if (newBlock.type === 'list') {
-      newBlock.content = '[]';
-    }
+    // Update refs
+    setBlocks((prevBlocks) => {
+      const updatedBlocks =
+        afterId === "new"
+          ? [newBlock]
+          : [
+              ...prevBlocks.slice(
+                0,
+                prevBlocks.findIndex((block) => block.id === afterId) + 1
+              ),
+              newBlock,
+              ...prevBlocks.slice(
+                prevBlocks.findIndex((block) => block.id === afterId) + 1
+              ),
+            ];
 
-    if (afterId === 'new') {
-      setBlocks([newBlock]);
-    } else {
-      const index = blocks.findIndex((block) => block.id === afterId);
-      setBlocks([
-        ...blocks.slice(0, index + 1),
-        newBlock,
-        ...blocks.slice(index + 1),
-      ]);
-    }
-    setActiveChangeTypeId(newBlock.id);
+      // Create a new ref for the new block
+      setInputRefs((refs) => [...refs, React.createRef()]);
+      return updatedBlocks;
+    });
+
+    // Autofocus on the new input
+    setTimeout(() => {
+      const newIndex = blocks.length; // The index of the newly added block
+      if (inputRefs[newIndex]?.current) {
+        inputRefs[newIndex].current.focus();
+      }
+    }, 0);
   };
-
   const updateBlock = (id: string, content: string) => {
     setBlocks(
       blocks.map((block) => {
         if (block.id === id) {
-          if (block.type === 'list') {
+          if (block.type === "list") {
             try {
               const parsed = JSON.parse(content);
               return {
@@ -251,6 +266,9 @@ export function Editor({ filePath }: EditorProps) {
                   isChangeTypeActive={activeChangeTypeId === block.id}
                   setActiveChangeTypeId={setActiveChangeTypeId}
                   updateBlockMetadata={updateBlockMetadata}
+                  inputRef={
+                    inputRefs[blocks.findIndex((b) => b.id === block.id)]
+                  }
                 />
               ))}
             </SortableContext>
@@ -258,7 +276,7 @@ export function Editor({ filePath }: EditorProps) {
           {blocks.length === 0 && !showPreview && (
             <div className="flex justify-center my-8">
               <Button
-                onClick={() => addBlock('new')}
+                onClick={() => addBlock("new")}
                 variant="outline"
                 className="flex items-center gap-2"
               >

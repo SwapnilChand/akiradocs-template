@@ -12,6 +12,7 @@ interface CodeBlockProps {
   align?: 'left' | 'center' | 'right';
   isEditing?: boolean;
   onUpdate?: (content: string) => void;
+  inputRef?: React.RefObject<HTMLInputElement>;
 }
 
 export function CodeBlock({

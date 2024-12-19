@@ -13,6 +13,8 @@ interface HeadingProps {
   };
   isEditing?: boolean;
   onUpdate?: (content: string) => void;
+  inputRef?: React.RefObject<HTMLInputElement>;
+  
 }
 
 export function HeadingTitle({ id, level, children, align = 'left', styles, isEditing, onUpdate }: HeadingProps) {

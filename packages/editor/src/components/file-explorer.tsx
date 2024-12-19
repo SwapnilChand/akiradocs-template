@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, KeyboardEvent, useEffect } from "react";
+import { useState, KeyboardEvent, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -61,6 +61,7 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
   );
   const [newItemName, setNewItemName] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState("all");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const content = fetchAllContent();
@@ -115,6 +116,11 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
     setNewItemParent(parentId);
     setNewItemType(type);
     setNewItemName("");
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, 0);
   };
 
   const cancelNewItem = () => {
@@ -376,6 +382,7 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
                 <div className="flex items-center mt-2 pr-8">
                   <Input
                     type="text"
+                    ref={inputRef}
                     value={newItemName}
                     onChange={(e) => setNewItemName(e.target.value)}
                     onKeyDown={handleKeyDown}

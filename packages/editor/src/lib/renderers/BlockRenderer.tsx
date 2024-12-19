@@ -1,62 +1,72 @@
-"use client"
-import { Block } from '@/types/Block'
-import { Paragraph } from "@/components/blocks/ParagraphBlock"
-import { HeadingTitle } from "@/components/blocks/HeadingBlock"
-import { List } from "@/components/blocks/ListBlock"
-import { Blockquote } from "@/components/blocks/BlockquoteBlock"
-import { Divider } from "@/components/blocks/DividerBlock"
-import { CodeBlock } from "@/components/blocks/CodeBlock"
-import { CheckList } from "@/components/blocks/CheckListBlock"
-import { Callout } from "@/components/blocks/CalloutBlock"
-import { ImageBlock } from "@/components/blocks/ImageBlock"
-import { Table } from '@/components/blocks/TableBlock'
-import { VideoBlock } from "@/components/blocks/VideoBlock"
-import { AudioBlock } from "@/components/blocks/AudioBlock"
-import { FileBlock } from "@/components/blocks/FileBlock"
-import { SpacerBlock } from "@/components/blocks/SpacerBlock"
-import { ButtonBlock } from "@/components/blocks/ButtonBlock"
+"use client";
+import { Block } from "@/types/Block";
+import { Paragraph } from "@/components/blocks/ParagraphBlock";
+import { HeadingTitle } from "@/components/blocks/HeadingBlock";
+import { List } from "@/components/blocks/ListBlock";
+import { Blockquote } from "@/components/blocks/BlockquoteBlock";
+import { Divider } from "@/components/blocks/DividerBlock";
+import { CodeBlock } from "@/components/blocks/CodeBlock";
+import { CheckList } from "@/components/blocks/CheckListBlock";
+import { Callout } from "@/components/blocks/CalloutBlock";
+import { ImageBlock } from "@/components/blocks/ImageBlock";
+import { Table } from "@/components/blocks/TableBlock";
+import { VideoBlock } from "@/components/blocks/VideoBlock";
+import { AudioBlock } from "@/components/blocks/AudioBlock";
+import { FileBlock } from "@/components/blocks/FileBlock";
+import { SpacerBlock } from "@/components/blocks/SpacerBlock";
+import { ButtonBlock } from "@/components/blocks/ButtonBlock";
 
 interface ImageBlockContent {
   url: string;
   alt?: string;
   caption?: string;
-  alignment?: 'left' | 'center' | 'right';
-  size?: 'small' | 'medium' | 'large' | 'full';
+  alignment?: "left" | "center" | "right";
+  size?: "small" | "medium" | "large" | "full";
 }
 
 interface BlockRendererProps {
-  block: Block
-  isEditing?: boolean
-  onUpdate?: (id: string, content: string) => void
+  block: Block;
+  isEditing?: boolean;
+  onUpdate?: (id: string, content: string) => void;
+  inputRef?: React.RefObject<HTMLInputElement>;
 }
 
 function BlockErrorFallback({ error }: { error: Error }) {
   return (
     <div className="p-4 border border-red-200 rounded-md bg-red-50 dark:bg-red-900/10">
-      <p className="text-sm text-red-600 dark:text-red-400">Failed to render block content</p>
+      <p className="text-sm text-red-600 dark:text-red-400">
+        Failed to render block content
+      </p>
     </div>
-  )
+  );
 }
 
-export function BlockRenderer({ block, isEditing, onUpdate }: BlockRendererProps) {
+export function BlockRenderer({
+  block,
+  isEditing,
+  onUpdate,
+  inputRef,
+}: BlockRendererProps) {
   const commonProps = {
     align: block.metadata?.align,
     styles: block.metadata?.styles,
     id: block.id,
+    inputRef,
   };
 
   switch (block.type) {
-    case 'paragraph':
+    case "paragraph":
       return (
-        <Paragraph 
-          {...commonProps} 
+        <Paragraph
+          {...commonProps}
           isEditing={isEditing}
           onUpdate={(content) => onUpdate?.(block.id, content)}
+          inputRef={inputRef}
         >
           {block.content}
         </Paragraph>
       );
-    case 'heading':
+    case "heading":
       return (
         <HeadingTitle
           {...commonProps}
@@ -65,24 +75,30 @@ export function BlockRenderer({ block, isEditing, onUpdate }: BlockRendererProps
           styles={block.metadata?.styles}
           isEditing={isEditing}
           onUpdate={(content) => onUpdate?.(block.id, content)}
+          inputRef={inputRef}
         >
           {block.content}
         </HeadingTitle>
       );
-    case 'list':
+    case "list":
       return (
-        <List 
+        <List
           {...commonProps}
-          content={Array.isArray(block.content) ? block.content.join('\n') : block.content}
-          listType={block.metadata?.listType || 'unordered'} 
+          content={
+            Array.isArray(block.content)
+              ? block.content.join("\n")
+              : block.content
+          }
+          listType={block.metadata?.listType || "unordered"}
           isEditing={isEditing}
           onUpdate={(content) => {
             // Ensure we're passing a plain string, not an array
             onUpdate?.(block.id, content);
           }}
+          inputRef={inputRef}
         />
       );
-    case 'code':
+    case "code":
       return (
         <CodeBlock
           {...commonProps}
@@ -93,19 +109,21 @@ export function BlockRenderer({ block, isEditing, onUpdate }: BlockRendererProps
           align={block.metadata?.align}
           isEditing={isEditing}
           onUpdate={(content) => onUpdate?.(block.id, content)}
+          inputRef={inputRef}
         />
       );
-    case 'blockquote':
+    case "blockquote":
       return (
-        <Blockquote 
+        <Blockquote
           {...commonProps}
           isEditing={isEditing}
           onUpdate={(content) => onUpdate?.(block.id, content)}
+          inputRef={inputRef}
         >
           {block.content}
         </Blockquote>
       );
-    case 'image':
+    case "image":
       return (
         <ImageBlock
           {...commonProps}
@@ -116,11 +134,11 @@ export function BlockRenderer({ block, isEditing, onUpdate }: BlockRendererProps
           onUpdate={(content) => onUpdate?.(block.id, content)}
         />
       );
-    case 'table':
+    case "table":
       return (
         <Table
-          headers={block.metadata?.headers || ['Column 1', 'Column 2']}
-          rows={block.metadata?.rows || [['', '']]}
+          headers={block.metadata?.headers || ["Column 1", "Column 2"]}
+          rows={block.metadata?.rows || [["", ""]]}
           isEditing={isEditing}
           onChange={(headers, rows) => {
             onUpdate?.(block.id, JSON.stringify({ headers, rows }));
@@ -129,36 +147,37 @@ export function BlockRenderer({ block, isEditing, onUpdate }: BlockRendererProps
           styles={block.metadata?.styles}
         />
       );
-    case 'callout':
+    case "callout":
       return (
-        <Callout 
+        <Callout
           {...commonProps}
-          type={block.metadata?.type || 'info'} 
-          title={block.metadata?.title} 
+          type={block.metadata?.type || "info"}
+          title={block.metadata?.title}
           isEditing={isEditing}
           onUpdate={(content) => onUpdate?.(block.id, content)}
+          inputRef={inputRef}
         >
           {block.content}
         </Callout>
       );
-    case 'divider':
+    case "divider":
       return <Divider {...commonProps} />;
-    case 'video':
+    case "video":
       const videoContent = (() => {
         try {
-          return typeof block.content === 'string'
+          return typeof block.content === "string"
             ? JSON.parse(block.content)
             : block.content;
         } catch {
           return {
             url: block.content,
-            caption: '',
-            alignment: 'center',
-            size: 'medium'
+            caption: "",
+            alignment: "center",
+            size: "medium",
           };
         }
       })();
-      
+
       return (
         <VideoBlock
           {...commonProps}
@@ -168,27 +187,27 @@ export function BlockRenderer({ block, isEditing, onUpdate }: BlockRendererProps
             ...block.metadata,
             caption: videoContent.caption,
             alignment: videoContent.alignment,
-            size: videoContent.size
+            size: videoContent.size,
           }}
           isEditing={isEditing}
           onUpdate={(content) => onUpdate?.(block.id, content)}
         />
       );
-    case 'audio':
+    case "audio":
       const audioContent = (() => {
         try {
-          return typeof block.content === 'string'
+          return typeof block.content === "string"
             ? JSON.parse(block.content)
             : block.content;
         } catch {
           return {
             url: block.content,
-            caption: '',
-            alignment: 'center'
+            caption: "",
+            alignment: "center",
           };
         }
       })();
-      
+
       return (
         <AudioBlock
           {...commonProps}
@@ -197,13 +216,13 @@ export function BlockRenderer({ block, isEditing, onUpdate }: BlockRendererProps
           metadata={{
             ...block.metadata,
             caption: audioContent.caption,
-            alignment: audioContent.alignment
+            alignment: audioContent.alignment,
           }}
           isEditing={isEditing}
           onUpdate={(content) => onUpdate?.(block.id, content)}
         />
       );
-    case 'file':
+    case "file":
       return (
         <FileBlock
           {...commonProps}
@@ -214,7 +233,7 @@ export function BlockRenderer({ block, isEditing, onUpdate }: BlockRendererProps
           onUpdate={(content) => onUpdate?.(block.id, content)}
         />
       );
-    case 'checkList':
+    case "checkList":
       return (
         <CheckList
           {...commonProps}
@@ -223,15 +242,15 @@ export function BlockRenderer({ block, isEditing, onUpdate }: BlockRendererProps
           onUpdate={(content) => onUpdate?.(block.id, content)}
         />
       );
-    case 'spacer':
+    case "spacer":
       return (
         <SpacerBlock
-          size={block.content as 'small' | 'medium' | 'large' | 'xlarge'}
+          size={block.content as "small" | "medium" | "large" | "xlarge"}
           isEditing={isEditing}
           onUpdate={(size) => onUpdate?.(block.id, size)}
         />
       );
-    case 'button':
+    case "button":
       return (
         <ButtonBlock
           content={block.content}
@@ -242,6 +261,6 @@ export function BlockRenderer({ block, isEditing, onUpdate }: BlockRendererProps
         />
       );
     default:
-      return null
+      return null;
   }
 }

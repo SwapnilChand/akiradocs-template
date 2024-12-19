@@ -18,6 +18,7 @@ interface CalloutProps {
   };
   isEditing?: boolean;
   onUpdate?: (content: string) => void;
+  inputRef?: React.RefObject<HTMLInputElement>
 }
 
 const calloutStyles: Record<CalloutType, { icon: React.ElementType; className: string }> = {

@@ -12,6 +12,8 @@ interface BlockquoteProps {
   };
   isEditing?: boolean;
   onUpdate?: (content: string) => void;
+  inputRef?: React.RefObject<HTMLInputElement>;
+
 }
 
 export function Blockquote({ id, children, align = 'left', styles, isEditing, onUpdate }: BlockquoteProps) {

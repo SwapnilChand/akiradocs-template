@@ -13,6 +13,8 @@ interface ListProps {
   };
   isEditing?: boolean;
   onUpdate?: (content: string) => void;
+  inputRef?: React.RefObject<HTMLInputElement>;
+  
 }
 
 export function List({

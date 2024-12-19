@@ -12,6 +12,7 @@ interface ParagraphProps {
   };
   isEditing?: boolean;
   onUpdate?: (content: string) => void;
+  inputRef?: React.RefObject<HTMLInputElement>;
 }
 
 export function Paragraph({ 
@@ -20,9 +21,9 @@ export function Paragraph({
   align = 'left', 
   styles = {}, 
   isEditing,
-  onUpdate 
+  onUpdate,
+  inputRef
 }: ParagraphProps) {
-  const inputRef = useRef<HTMLDivElement>(null);
 
   if (isEditing) {
     return (
