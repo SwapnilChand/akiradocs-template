@@ -30,7 +30,7 @@ interface FileExplorerProps {
 }
 
 const API_URL =
-  process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:3001";
 
 const getNodeFullPath = (
   tree: FileNode[],
@@ -209,7 +209,6 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
       console.error("addNewItem: Error creating item:", error);
     }
   };
-
   const updateMetadata = async (
     parentPath: string,
     newFileName: string,
@@ -452,7 +451,21 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
       });
     });
 
-    return rootNodes;
+    // Filter out _meta.json files
+    const filterMetaFiles = (nodes: FileNode[]): FileNode[] => {
+      return nodes
+        .map((node) => ({
+          ...node,
+          children: node.children
+            ? filterMetaFiles(
+                node.children.filter((child) => child.name !== "_meta.json")
+              )
+            : undefined,
+        }))
+        .filter((node) => node.name !== "_meta.json");
+    };
+
+    return filterMetaFiles(rootNodes);
   };
 
   const deleteItem = async (
