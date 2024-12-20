@@ -62,6 +62,9 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
   const [newItemName, setNewItemName] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState("all");
   const inputRef = useRef<HTMLInputElement>(null);
+  const [renamingNode, setRenamingNode] = useState<string | null>(null);
+  const [newName, setNewName] = useState("");
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const content = fetchAllContent();
@@ -100,6 +103,66 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
       }
       return newSet;
     });
+  };
+
+  const startRename = (nodeId: string, currentName: string) => {
+    setRenamingNode(nodeId);
+    setNewName(
+      currentName.endsWith(".json") ? currentName.slice(0, -5) : currentName
+    );
+    setTimeout(() => {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }, 0);
+  };
+
+  const handleRename = async (nodeId: string) => {
+    if (!newName.trim()) return;
+
+    const node = findNodeById(fileTree, nodeId);
+    if (!node) return;
+
+    const oldPath = getNodeFullPath(fileTree, nodeId);
+    if (!oldPath) return;
+
+    const parentPath = oldPath.substring(0, oldPath.lastIndexOf("/"));
+    const newFileName = node.type === "file" ? `${newName}.json` : newName;
+    const newPath = parentPath ? `${parentPath}/${newFileName}` : newFileName;
+
+    try {
+      const response = await fetch(`/api/files`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          oldPath,
+          newPath,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to rename item");
+      }
+
+      // Update file tree
+      const updatedTree = renameNodeInTree(fileTree, nodeId, newFileName);
+      setFileTree(updatedTree);
+
+      // If it's a file, update metadata
+      if (node.type === "file") {
+        await updateMetadataForRename(parentPath, node.name, newFileName);
+      }
+
+      cancelRename();
+    } catch (error) {
+      console.error("Error renaming item:", error);
+    }
+  };
+
+  const cancelRename = () => {
+    setRenamingNode(null);
+    setNewName("");
   };
 
   const handleFileClick = (node: FileNode) => {
@@ -293,6 +356,88 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
       addNewItem();
     }
   };
+  const handleRenameKeyDown = (
+    e: KeyboardEvent<HTMLInputElement>,
+    nodeId: string
+  ) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleRename(nodeId);
+    } else if (e.key === "Escape") {
+      cancelRename();
+    }
+  };
+  const findNodeById = (nodes: FileNode[], id: string): FileNode | null => {
+    for (const node of nodes) {
+      if (node.id === id) return node;
+      if (node.children) {
+        const found = findNodeById(node.children, id);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const renameNodeInTree = (
+    tree: FileNode[],
+    nodeId: string,
+    newName: string
+  ): FileNode[] => {
+    return tree.map((node) => {
+      if (node.id === nodeId) {
+        return { ...node, name: newName };
+      }
+      if (node.children) {
+        return {
+          ...node,
+          children: renameNodeInTree(node.children, nodeId, newName),
+        };
+      }
+      return node;
+    });
+  };
+
+  const updateMetadataForRename = async (
+    parentPath: string,
+    oldFileName: string,
+    newFileName: string
+  ) => {
+    const metaPath = `${parentPath}/_meta.json`;
+    try {
+      const metaResponse = await fetch(
+        `${API_URL}/api/files?path=${encodeURIComponent(metaPath)}`,
+        { method: "GET" }
+      );
+
+      if (!metaResponse.ok) {
+        throw new Error("Failed to read metadata");
+      }
+
+      const metadata = await metaResponse.json();
+      const oldFileId = oldFileName.replace(".json", "");
+      const newFileId = newFileName.replace(".json", "");
+
+      if (metadata[oldFileId]) {
+        metadata[newFileId] = {
+          ...metadata[oldFileId],
+          path: `/articles/${newFileId}`,
+        };
+        delete metadata[oldFileId];
+
+        await fetch(`${API_URL}/api/files`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            path: metaPath,
+            content: metadata,
+          }),
+        });
+      }
+    } catch (error) {
+      console.error("Error updating metadata:", error);
+    }
+  };
+
   const filterTreeByLanguage = (nodes: FileNode[]): FileNode[] => {
     if (selectedLanguage === "all") return nodes;
 
@@ -306,7 +451,7 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
 
   const renderFileTree = (nodes: FileNode[], level: number = 0) => {
     return (
-      <ul className={`space-y-1 ${level > 0 ? "ml-4 pl-4" : ""}`}>
+      <ul className={`space-y-0.5 ${level > 0 ? "ml-3 pl-3" : ""}`}>
         {nodes.map((node, index) => (
           <React.Fragment key={node.id}>
             <li className="relative">
@@ -314,9 +459,10 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
                 onNewFile={() => startNewItem(node.id, "file")}
                 onNewFolder={() => startNewItem(node.id, "folder")}
                 onDelete={() => deleteItem(node.id, node.name, node.type)}
+                onRename={() => startRename(node.id, node.name)}
                 isFolder={node.type === "folder"}
               >
-                <div className="flex items-center justify-between py-1 pr-2">
+                <div className="flex items-center justify-between py-0.5 pr-2">
                   <div className="flex items-center flex-grow min-w-0">
                     {node.type === "folder" && (
                       <button
@@ -345,20 +491,32 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
                       )}
                     </div>
                     <div className="flex-grow min-w-0 pr-2">
-                      <span
-                        className={`text-sm ${
-                          node.type === "folder" ? "font-semibold" : ""
-                        } text-foreground hover:text-primary transition-colors duration-200 cursor-pointer truncate inline-block max-w-full`}
-                        onClick={() =>
-                          node.type === "file"
-                            ? handleFileClick(node)
-                            : toggleFolder(node.id)
-                        }
-                      >
-                        {node.type === "file"
-                          ? node.name.split(".").slice(0, -1).join(".")
-                          : node.name}
-                      </span>
+                      {renamingNode === node.id ? (
+                        <Input
+                          ref={renameInputRef}
+                          type="text"
+                          value={newName}
+                          onChange={(e) => setNewName(e.target.value)}
+                          onKeyDown={(e) => handleRenameKeyDown(e, node.id)}
+                          onBlur={() => handleRename(node.id)}
+                          className="h-6 text-sm py-0 px-1"
+                        />
+                      ) : (
+                        <span
+                          className={`text-sm ${
+                            node.type === "folder" ? "font-semibold" : ""
+                          } text-foreground hover:text-primary transition-colors duration-200 cursor-pointer truncate inline-block max-w-full`}
+                          onClick={() =>
+                            node.type === "file"
+                              ? handleFileClick(node)
+                              : toggleFolder(node.id)
+                          }
+                        >
+                          {node.type === "file"
+                            ? node.name.split(".").slice(0, -1).join(".")
+                            : node.name}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -539,6 +697,7 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
         </h1>
         <div className="w-full min-w-0">
           {" "}
+          {/* Container for LanguageSelector */}
           <LanguageSelector
             value={selectedLanguage}
             onValueChange={setSelectedLanguage}

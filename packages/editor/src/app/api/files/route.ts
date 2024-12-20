@@ -1,4 +1,4 @@
-import { writeFile, mkdir, rm, unlink, readFile } from "fs/promises";
+import { writeFile, mkdir, rm, unlink, readFile, rename } from "fs/promises";
 import { NextResponse } from "next/server";
 import path from "path";
 
@@ -8,25 +8,50 @@ function getBasePath() {
 
 export async function POST(request: Request) {
   try {
-    const { path: filePath, content, isDirectory } = await request.json();
+    const body = await request.json();
+
+    if ("oldPath" in body && "newPath" in body) {
+      const oldFullPath = path.join(getBasePath(), body.oldPath);
+      const newFullPath = path.join(getBasePath(), body.newPath);
+
+      try {
+        await readFile(newFullPath);
+        return NextResponse.json(
+          { error: "A file with this name already exists" },
+          { status: 409 }
+        );
+      } catch {}
+
+      try {
+        await mkdir(path.dirname(newFullPath), { recursive: true });
+
+        await rename(oldFullPath, newFullPath);
+        return NextResponse.json({ success: true });
+      } catch (renameError) {
+        console.error("Error during rename:", renameError);
+        return NextResponse.json(
+          { error: "Failed to rename file or folder" },
+          { status: 500 }
+        );
+      }
+    }
+
+    const { path: filePath, content, isDirectory } = body;
     const fullPath = path.join(getBasePath(), filePath);
 
-    // Ensure the directory exists
     await mkdir(path.dirname(fullPath), { recursive: true });
 
     if (isDirectory) {
-      // If it's a directory, just create it
       await mkdir(fullPath, { recursive: true });
     } else {
-      // If it's a file, write the content
       await writeFile(fullPath, JSON.stringify(content, null, 2));
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error creating file:", error);
+    console.error("Error in POST handler:", error);
     return NextResponse.json(
-      { error: "Failed to create file" },
+      { error: "Failed to process request" },
       { status: 500 }
     );
   }
@@ -87,7 +112,6 @@ export async function PUT(request: Request) {
       );
     }
 
-    // Validate content
     if (!content) {
       return NextResponse.json(
         { error: "No content provided" },
@@ -97,10 +121,8 @@ export async function PUT(request: Request) {
 
     const fullPath = path.join(getBasePath(), filePath);
 
-    // Check if directory exists, if not create it
     await mkdir(path.dirname(fullPath), { recursive: true });
 
-    // Add retry logic
     const maxRetries = 3;
     for (let i = 0; i < maxRetries; i++) {
       try {
@@ -109,7 +131,7 @@ export async function PUT(request: Request) {
         return NextResponse.json({ success: true });
       } catch (writeError) {
         if (i === maxRetries - 1) throw writeError;
-        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1s before retry
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     }
   } catch (error) {

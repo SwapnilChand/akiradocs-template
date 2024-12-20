@@ -1,17 +1,18 @@
-import * as React from 'react';
+import * as React from "react";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-} from '@/components/ui/context-menu';
-import { File, Folder, Trash2 } from 'lucide-react';
+} from "@/components/ui/context-menu";
+import { File, Folder, Trash2, Pencil } from "lucide-react";
 
 interface FileExplorerContextMenuProps {
   children: React.ReactNode;
   onNewFile: () => void;
   onNewFolder: () => void;
   onDelete: () => void;
+  onRename: () => void;
   isFolder: boolean;
 }
 
@@ -20,6 +21,7 @@ export function FileExplorerContextMenu({
   onNewFile,
   onNewFolder,
   onDelete,
+  onRename,
   isFolder,
 }: FileExplorerContextMenuProps) {
   return (
@@ -38,6 +40,10 @@ export function FileExplorerContextMenu({
             </ContextMenuItem>
           </>
         )}
+        <ContextMenuItem onClick={onRename}>
+          <Pencil className="mr-2 h-4 w-4" />
+          Rename
+        </ContextMenuItem>
         <ContextMenuItem onSelect={onDelete} className="text-red-600">
           <Trash2 className="mr-2 h-4 w-4" />
           Delete
