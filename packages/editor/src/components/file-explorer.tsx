@@ -117,9 +117,7 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
     setNewItemType(type);
     setNewItemName("");
     setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
+      inputRef.current?.focus();
     }, 0);
   };
 
@@ -215,6 +213,7 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
       console.error("addNewItem: Error creating item:", error);
     }
   };
+
   const updateMetadata = async (
     parentPath: string,
     newFileName: string,
@@ -317,8 +316,8 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
                 onDelete={() => deleteItem(node.id, node.name, node.type)}
                 isFolder={node.type === "folder"}
               >
-                <div className="flex items-center justify-between py-1">
-                  <div className="flex items-center flex-grow">
+                <div className="flex items-center justify-between py-1 pr-2">
+                  <div className="flex items-center flex-grow min-w-0">
                     {node.type === "folder" && (
                       <button
                         onClick={() => toggleFolder(node.id)}
@@ -336,7 +335,7 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
                         )}
                       </button>
                     )}
-                    <div className="h-4">
+                    <div className="mb-1">
                       {node.type === "folder" ? (
                         ""
                       ) : (
@@ -345,20 +344,22 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
                         </div>
                       )}
                     </div>
-                    <span
-                      className={`text-sm ${
-                        node.type === "folder" ? "font-semibold" : ""
-                      } text-foreground hover:text-primary transition-colors duration-200 cursor-pointer`}
-                      onClick={() =>
-                        node.type === "file"
-                          ? handleFileClick(node)
-                          : toggleFolder(node.id)
-                      }
-                    >
-                      {node.type === "file"
-                        ? node.name.split(".").slice(0, -1).join(".")
-                        : node.name}
-                    </span>
+                    <div className="flex-grow min-w-0 pr-2">
+                      <span
+                        className={`text-sm ${
+                          node.type === "folder" ? "font-semibold" : ""
+                        } text-foreground hover:text-primary transition-colors duration-200 cursor-pointer truncate inline-block max-w-full`}
+                        onClick={() =>
+                          node.type === "file"
+                            ? handleFileClick(node)
+                            : toggleFolder(node.id)
+                        }
+                      >
+                        {node.type === "file"
+                          ? node.name.split(".").slice(0, -1).join(".")
+                          : node.name}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </FileExplorerContextMenu>
@@ -379,7 +380,7 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
                 </AnimatePresence>
               )}
               {newItemParent === node.id && (
-                <div className="flex items-center mt-2 pr-8">
+                <div className="flex items-center mt-2 pr-8 flex-shrink-0">
                   <Input
                     type="text"
                     ref={inputRef}
