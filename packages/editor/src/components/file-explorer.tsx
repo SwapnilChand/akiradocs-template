@@ -532,13 +532,18 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
   };
 
   return (
-    <div className="px-8 py-8 bg-background min-h-screen text-foreground">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-foreground">Project Explorer</h1>
-        <LanguageSelector
-          value={selectedLanguage}
-          onValueChange={setSelectedLanguage}
-        />
+    <div className="px-6 py-6 bg-background min-h-screen text-foreground min-w-[150px] max-w-[300px] flex-shrink-0 w-full">
+      <div className="flex flex-col space-y-4 mb-6">
+        <h1 className="text-xl font-semibold text-foreground">
+          Project Explorer
+        </h1>
+        <div className="w-full min-w-0">
+          {" "}
+          <LanguageSelector
+            value={selectedLanguage}
+            onValueChange={setSelectedLanguage}
+          />
+        </div>
       </div>
 
       <motion.div
