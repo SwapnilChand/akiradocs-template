@@ -116,25 +116,361 @@ export function Editor({ filePath, onDelete, onRename }: EditorProps) {
   };
 
   const exportToPDF = () => {
-    const doc = new jsPDF();
-
-    let yPosition = 10;
-
-    blocks.forEach((block) => {
-      if (block.type === "paragraph") {
-        doc.setFontSize(12);
-        doc.text(block.content, 10, yPosition);
-        yPosition += 10;
-      }
-      // } else if (block.type === 'header') {
-      //   doc.setFontSize(16);
-      //   doc.text(block.content, 10, yPosition);
-      //   yPosition += 15; // More spacing for headers
-      // }
-      // Add more conditions for different block types as needed
+    const doc = new jsPDF({
+      unit: "pt",
+      format: "a4",
     });
 
-    doc.save("exported_data.pdf");
+    // Set document margins similar to editor (using points)
+    const margin = {
+      top: 40,
+      bottom: 40,
+      left: 40,
+      right: 40,
+    };
+
+    const pageWidth = doc.internal.pageSize.width;
+    const maxWidth = pageWidth - margin.left - margin.right;
+    let currentY = margin.top;
+
+    // Add title
+    if (title) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(28);
+      doc.setTextColor(0, 0, 0);
+      const titleLines = doc.splitTextToSize(title, maxWidth);
+      doc.text(titleLines, margin.left, currentY);
+      currentY += titleLines.length * 35;
+    }
+
+    // Add subtitle
+    if (subtitle) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(18);
+      doc.setTextColor(100, 100, 100);
+      const subtitleLines = doc.splitTextToSize(subtitle, maxWidth);
+      doc.text(subtitleLines, margin.left, currentY);
+      currentY += subtitleLines.length * 25 + 20;
+    }
+
+    // Process each block
+    blocks.forEach((block) => {
+      // Add spacing between blocks
+      currentY += 10;
+
+      // Check if we need a new page before processing each block
+      if (currentY > doc.internal.pageSize.height - margin.bottom) {
+        doc.addPage();
+        currentY = margin.top;
+      }
+
+      switch (block.type) {
+        case "heading": {
+          const level = block.metadata?.level || 1;
+          const fontSize: { [key: number]: number } = {
+            1: 24,
+            2: 20,
+            3: 18,
+            4: 16,
+            5: 14,
+            6: 12,
+          };
+          const fontSizeValue = fontSize[level as number] || 24;
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(fontSizeValue);
+          doc.setTextColor(0, 0, 0);
+          const lines = doc.splitTextToSize(block.content, maxWidth);
+          doc.text(lines, margin.left, currentY);
+          currentY += lines.length * (fontSizeValue * 1.5);
+          break;
+        }
+
+        case "paragraph": {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(12);
+          doc.setTextColor(0, 0, 0);
+
+          if (block.metadata?.styles) {
+            if (block.metadata.styles.bold) doc.setFont("helvetica", "bold");
+            if (block.metadata.styles.italic)
+              doc.setFont("helvetica", "italic");
+          }
+
+          const alignment = block.metadata?.align || "left";
+          const lines = doc.splitTextToSize(block.content, maxWidth);
+          const xPosition =
+            alignment === "center"
+              ? pageWidth / 2
+              : alignment === "right"
+              ? pageWidth - margin.right
+              : margin.left;
+
+          doc.text(lines, xPosition, currentY, {
+            align: alignment,
+            maxWidth: maxWidth,
+          });
+          currentY += lines.length * 20;
+          break;
+        }
+
+        case "list": {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(12);
+          doc.setTextColor(0, 0, 0);
+
+          try {
+            const items = Array.isArray(block.content)
+              ? block.content
+              : JSON.parse(block.content);
+            const listType = block.metadata?.listType || "unordered";
+
+            items.forEach((item: string, index: number) => {
+              const bullet = listType === "ordered" ? `${index + 1}.` : "•";
+              const itemText = `${bullet} ${item}`;
+              const lines = doc.splitTextToSize(itemText, maxWidth - 20);
+
+              doc.text(lines, margin.left + 20, currentY);
+              currentY += lines.length * 20;
+            });
+          } catch (e) {
+            console.error("Error parsing list content:", e);
+          }
+          break;
+        }
+
+        case "code": {
+          doc.setFont("courier", "normal");
+          doc.setFontSize(11);
+          doc.setTextColor(0, 0, 0);
+
+          // Add light gray background for code blocks
+          doc.setFillColor(245, 245, 245);
+          const lines = doc.splitTextToSize(block.content, maxWidth - 20);
+          const blockHeight = lines.length * 15 + 20;
+          doc.rect(margin.left, currentY - 10, maxWidth, blockHeight, "F");
+
+          // Add filename if present
+          if (block.metadata?.filename) {
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(10);
+            doc.text(block.metadata.filename, margin.left + 10, currentY + 5);
+            currentY += 20;
+          }
+
+          doc.setFont("courier", "normal");
+          doc.setFontSize(11);
+          lines.forEach((line: string) => {
+            doc.text(line, margin.left + 10, currentY);
+            currentY += 15;
+          });
+
+          currentY += 10;
+          break;
+        }
+
+        case "blockquote": {
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(12);
+          doc.setTextColor(100, 100, 100);
+
+          // Add light gray background
+          doc.setFillColor(245, 245, 245);
+          const lines = doc.splitTextToSize(block.content, maxWidth - 40);
+          const blockHeight = lines.length * 20 + 20;
+          doc.rect(margin.left, currentY - 10, maxWidth, blockHeight, "F");
+
+          // Add left border
+          doc.setDrawColor(200, 200, 200);
+          doc.setLineWidth(4);
+          doc.line(
+            margin.left + 4,
+            currentY - 10,
+            margin.left + 4,
+            currentY + blockHeight - 10
+          );
+
+          // Add quote content
+          doc.text(lines, margin.left + 20, currentY);
+          currentY += lines.length * 20 + 10;
+          break;
+        }
+
+        case "callout": {
+          const typeColors = {
+            info: [235, 245, 255] as [number, number, number],
+            warning: [255, 250, 235] as [number, number, number],
+            success: [235, 255, 240] as [number, number, number],
+            error: [255, 235, 235] as [number, number, number],
+          };
+          const type = block.metadata?.type || "info";
+          const color = typeColors[type as keyof typeof typeColors];
+
+          doc.setFillColor(color[0], color[1], color[2]);
+          const lines = doc.splitTextToSize(block.content, maxWidth - 20);
+          const blockHeight = lines.length * 20 + 40;
+          doc.roundedRect(
+            margin.left,
+            currentY - 10,
+            maxWidth,
+            blockHeight,
+            3,
+            3,
+            "F"
+          );
+
+          if (block.metadata?.title) {
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(14);
+            doc.text(block.metadata.title, margin.left + 15, currentY + 10);
+            currentY += 25;
+          }
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(12);
+          doc.text(lines, margin.left + 15, currentY);
+          currentY += lines.length * 20 + 15;
+          break;
+        }
+
+        case "checkList": {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(12);
+          doc.setTextColor(0, 0, 0);
+
+          try {
+            const items = Array.isArray(block.content)
+              ? block.content
+              : JSON.parse(block.content);
+
+            items.forEach((item: { text: string; checked: boolean }) => {
+              const checkbox = item.checked ? "☒" : "☐";
+              const itemText = `${checkbox} ${item.text}`;
+              const lines = doc.splitTextToSize(itemText, maxWidth - 20);
+
+              doc.text(lines, margin.left + 20, currentY);
+              currentY += lines.length * 20;
+            });
+          } catch (e) {
+            console.error("Error parsing checklist content:", e);
+          }
+          break;
+        }
+
+        case "divider": {
+          doc.setDrawColor(200, 200, 200);
+          doc.setLineWidth(1);
+          doc.line(margin.left, currentY, pageWidth - margin.right, currentY);
+          currentY += 20;
+          break;
+        }
+
+        case "table": {
+          try {
+            const { headers, rows } = JSON.parse(block.content);
+            const cellPadding = 10;
+            const cellWidth = maxWidth / headers.length;
+            const cellHeight = 30;
+
+            // Draw headers
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(12);
+            doc.setFillColor(245, 245, 245);
+
+            headers.forEach((header: string, index: number) => {
+              doc.rect(
+                margin.left + index * cellWidth,
+                currentY - cellPadding,
+                cellWidth,
+                cellHeight,
+                "F"
+              );
+              const lines = doc.splitTextToSize(
+                header,
+                cellWidth - cellPadding * 2
+              );
+              doc.text(
+                lines,
+                margin.left + index * cellWidth + cellPadding,
+                currentY + 5
+              );
+            });
+
+            currentY += cellHeight;
+
+            // Draw rows
+            doc.setFont("helvetica", "normal");
+            rows.forEach((row: string[]) => {
+              const rowHeight = cellHeight;
+              row.forEach((cell: string, index: number) => {
+                const lines = doc.splitTextToSize(
+                  cell,
+                  cellWidth - cellPadding * 2
+                );
+                doc.text(
+                  lines,
+                  margin.left + index * cellWidth + cellPadding,
+                  currentY + 5
+                );
+              });
+              currentY += rowHeight;
+            });
+          } catch (e) {
+            console.error("Error parsing table content:", e);
+          }
+          break;
+        }
+
+        case "image":
+        case "video":
+        case "audio":
+        case "file": {
+          try {
+            const content =
+              typeof block.content === "string"
+                ? JSON.parse(block.content)
+                : block.content;
+
+            // Add caption if present
+            if (content.caption) {
+              doc.setFont("helvetica", "italic");
+              doc.setFontSize(10);
+              doc.setTextColor(100, 100, 100);
+              const captionLines = doc.splitTextToSize(
+                content.caption,
+                maxWidth
+              );
+              doc.text(captionLines, margin.left, currentY);
+              currentY += captionLines.length * 15;
+            }
+
+            // Add placeholder text for media/file
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.setTextColor(100, 100, 100);
+            const placeholderText = `[${block.type.toUpperCase()} - ${
+              content.url || "Embedded content"
+            }]`;
+            doc.text(placeholderText, margin.left, currentY);
+            currentY += 20;
+          } catch (e) {
+            console.error(`Error processing ${block.type} content:`, e);
+          }
+          break;
+        }
+      }
+    });
+
+    const fileName =
+      filePath
+        ?.split("/")
+        .pop()
+        ?.replace(".json", "")
+        ?.split("-")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ") || "Untitled";
+
+    doc.save(`${fileName}.pdf`);
   };
 
   const addBlock = (afterId: string) => {
