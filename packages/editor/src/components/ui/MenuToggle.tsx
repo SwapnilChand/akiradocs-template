@@ -1,15 +1,8 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import {
-  MoreVertical,
-  Edit3,
-  FileDown,
-  ScalingIcon as FontSize,
-  LineChart,
-  Trash2,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect } from "react";
+import { MoreVertical, FileDown, Edit3, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,9 +10,15 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 
-export function MenuToggle() {
+interface MenuToggleProps {
+  onDelete: () => void;
+  onRename: () => void;
+  onExport: () => void;
+}
+
+export function MenuToggle({ onDelete, onRename, onExport }: MenuToggleProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -45,24 +44,17 @@ export function MenuToggle() {
       <DropdownMenuContent align="end" className="w-[200px]">
         <DropdownMenuLabel>Options</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
+        <DropdownMenuItem onSelect={onRename}>
           <Edit3 className="mr-2 h-4 w-4" />
           <span>Rename</span>
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={onExport}>
           <FileDown className="mr-2 h-4 w-4" />
-          <span>Export</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem>
-          <FontSize className="mr-2 h-4 w-4" />
-          <span>Choose Font</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem>
-          <LineChart className="mr-2 h-4 w-4" />
-          <span>Check Analytics</span>
+          <span>Export PDF</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="text-red-600">
+        <DropdownMenuItem onSelect={onDelete} className="text-red-600">
           <Trash2 className="mr-2 h-4 w-4" />
           <span>Delete</span>
         </DropdownMenuItem>

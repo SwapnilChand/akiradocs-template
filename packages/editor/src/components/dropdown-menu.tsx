@@ -1,12 +1,12 @@
-import * as React from 'react';
+import * as React from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { File, Folder, Trash2, Pencil, MoreVertical } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+} from "@/components/ui/dropdown-menu";
+import { File, Folder, Trash2, Pencil, MoreVertical } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface FileExplorerDropdownMenuProps {
   onNewFile: () => void;
@@ -14,6 +14,8 @@ interface FileExplorerDropdownMenuProps {
   onDelete: () => void;
   onRename: () => void;
   isFolder: boolean;
+  disableRename?: boolean;
+  disableDelete?: boolean;
 }
 
 export function FileExplorerDropdownMenu({
@@ -22,6 +24,8 @@ export function FileExplorerDropdownMenu({
   onDelete,
   onRename,
   isFolder,
+  disableDelete = false,
+  disableRename = false,
 }: FileExplorerDropdownMenuProps) {
   return (
     <DropdownMenu>
@@ -46,14 +50,18 @@ export function FileExplorerDropdownMenu({
             </DropdownMenuItem>
           </>
         )}
-        <DropdownMenuItem onSelect={onRename}>
-          <Pencil className="mr-2 h-4 w-4" />
-          Rename
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onDelete} className="text-red-600">
-          <Trash2 className="mr-2 h-4 w-4" />
-          Delete
-        </DropdownMenuItem>
+        {!disableRename && (
+          <DropdownMenuItem onSelect={onRename}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Rename
+          </DropdownMenuItem>
+        )}
+        {!disableDelete && (
+          <DropdownMenuItem onSelect={onDelete} className="text-red-600">
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

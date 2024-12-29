@@ -1,8 +1,15 @@
-'use client';
+"use client";
 
-import { useState, KeyboardEvent, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import {
+  useState,
+  KeyboardEvent,
+  useEffect,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Folder,
   File,
@@ -10,33 +17,43 @@ import {
   X,
   ChevronRight,
   ChevronDown,
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { fetchAllContent } from '@/lib/getContents';
-import { FileExplorerContextMenu } from '@/components/context-menu';
-import { FileExplorerDropdownMenu } from '@/components/dropdown-menu';
-import { LanguageSelector } from './language-selector';
-import { InsertionPoint } from './insertion-point';
-import * as React from 'react';
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { fetchAllContent } from "@/lib/getContents";
+import { FileExplorerContextMenu } from "@/components/context-menu";
+import { FileExplorerDropdownMenu } from "@/components/dropdown-menu";
+import { LanguageSelector } from "./language-selector";
+import { InsertionPoint } from "./insertion-point";
+import * as React from "react";
 
-type FileNode = {
+export type FileNode = {
   id: string;
   name: string;
-  type: 'file' | 'folder';
+  type: "file" | "folder";
   children?: FileNode[];
 };
 
+interface MetaItem {
+  title: string;
+  path?: string;
+  items?: Record<string, MetaItem>;
+}
+
 interface FileExplorerProps {
-  onFileSelect: (path: string) => void;
+  onFileSelect: (path: string, node: FileNode) => void;
+}
+interface RootMeta {
+  defaultRoute?: string;
+  [key: string]: MetaItem | string | undefined;
 }
 
 const API_URL =
-  process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:3001';
+  process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:3001";
 
 const getNodeFullPath = (
   tree: FileNode[],
   nodeId: string,
-  parentPath: string = ''
+  parentPath: string = ""
 ): string | null => {
   for (const node of tree) {
     const currentPath = parentPath ? `${parentPath}/${node.name}` : node.name;
@@ -51,20 +68,20 @@ const getNodeFullPath = (
   return null;
 };
 
-export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
+const FileExplorer = forwardRef((props: FileExplorerProps, ref) => {
   const [fileTree, setFileTree] = useState<FileNode[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-    new Set(['1', '4'])
+    new Set(["1", "4"])
   );
   const [newItemParent, setNewItemParent] = useState<string | null>(null);
-  const [newItemType, setNewItemType] = useState<'file' | 'folder' | null>(
+  const [newItemType, setNewItemType] = useState<"file" | "folder" | null>(
     null
   );
-  const [newItemName, setNewItemName] = useState('');
-  const [selectedLanguage, setSelectedLanguage] = useState('all');
+  const [newItemName, setNewItemName] = useState("");
+  const [selectedLanguage, setSelectedLanguage] = useState("all");
   const inputRef = useRef<HTMLInputElement>(null);
   const [renamingNode, setRenamingNode] = useState<string | null>(null);
-  const [newName, setNewName] = useState('');
+  const [newName, setNewName] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -73,7 +90,7 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
     setFileTree(transformedTree);
 
     // Expand the selected language folder
-    if (selectedLanguage !== 'all') {
+    if (selectedLanguage !== "all") {
       const languageFolder = transformedTree.find(
         (node) => node.name === selectedLanguage
       );
@@ -84,7 +101,7 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
   }, [selectedLanguage]);
 
   useEffect(() => {
-    if (selectedLanguage !== 'all') {
+    if (selectedLanguage !== "all") {
       const languageFolder = fileTree.find(
         (node) => node.name === selectedLanguage
       );
@@ -109,7 +126,7 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
   const startRename = (nodeId: string, currentName: string) => {
     setRenamingNode(nodeId);
     setNewName(
-      currentName.endsWith('.json') ? currentName.slice(0, -5) : currentName
+      currentName.endsWith(".json") ? currentName.slice(0, -5) : currentName
     );
     setTimeout(() => {
       renameInputRef.current?.focus();
@@ -124,7 +141,7 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
     if (!node) return;
 
     // Check if the new name is one of the restricted names
-    const restrictedNames = ['de', 'en', 'es', 'fr', 'api', 'articles', 'docs'];
+    const restrictedNames = ["de", "en", "es", "fr", "api", "articles", "docs"];
     if (restrictedNames.includes(newName.trim())) {
       cancelRename();
       return;
@@ -132,15 +149,15 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
     const oldPath = getNodeFullPath(fileTree, nodeId);
     if (!oldPath) return;
 
-    const parentPath = oldPath.substring(0, oldPath.lastIndexOf('/'));
-    const newFileName = node.type === 'file' ? `${newName}.json` : newName;
+    const parentPath = oldPath.substring(0, oldPath.lastIndexOf("/"));
+    const newFileName = node.type === "file" ? `${newName}.json` : newName;
     const newPath = parentPath ? `${parentPath}/${newFileName}` : newFileName;
 
     try {
-      const response = await fetch(`/api/files`, {
-        method: 'POST',
+      const response = await fetch(`${API_URL}/api/files`, {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           oldPath,
@@ -149,7 +166,7 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to rename item');
+        throw new Error("Failed to rename item");
       }
 
       // Update file tree
@@ -157,35 +174,35 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
       setFileTree(updatedTree);
 
       // If it's a file, update metadata
-      if (node.type === 'file') {
+      if (node.type === "file") {
         await updateMetadataForRename(parentPath, node.name, newFileName);
       }
 
       cancelRename();
     } catch (error) {
-      console.error('Error renaming item:', error);
+      console.error("Error renaming item:", error);
     }
   };
 
   const cancelRename = () => {
     setRenamingNode(null);
-    setNewName('');
+    setNewName("");
   };
 
   const handleFileClick = (node: FileNode) => {
     const fullPath = getNodeFullPath(fileTree, node.id);
     if (!fullPath) {
-      console.error('Could not find full path for node');
+      console.error("Could not find full path for node");
       return;
     }
-    onFileSelect(fullPath);
+    props.onFileSelect(fullPath, node);
   };
 
-  const startNewItem = (parentId: string, type: 'file' | 'folder') => {
-    console.log('Starting new item:', { parentId, type }); // Add debug logging
+  const startNewItem = (parentId: string, type: "file" | "folder") => {
+    console.log("Starting new item:", { parentId, type }); // Add debug logging
     setNewItemParent(parentId);
     setNewItemType(type);
-    setNewItemName('');
+    setNewItemName("");
     setTimeout(() => {
       inputRef.current?.focus();
     }, 0);
@@ -194,7 +211,7 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
   const cancelNewItem = () => {
     setNewItemParent(null);
     setNewItemType(null);
-    setNewItemName('');
+    setNewItemName("");
   };
 
   const addNewItem = async () => {
@@ -204,39 +221,49 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
       id: Date.now().toString(),
       name: newItemName,
       type: newItemType,
-      children: newItemType === 'folder' ? [] : undefined,
+      children: newItemType === "folder" ? [] : undefined,
     };
 
     const parentPath = getNodeFullPath(fileTree, newItemParent);
     if (!parentPath) {
-      console.error('Could not find parent path');
+      console.error("Could not find parent path");
       return;
     }
 
     const fullPath = `${parentPath}/${newItemName}`;
 
     try {
-      console.log('Creating new item:', {
+      console.log("Creating new item:", {
         parentPath,
         fullPath,
         itemType: newItemType,
         itemName: newItemName,
       });
 
-      if (newItemType === 'file') {
+      if (newItemType === "file") {
+        // Get the language and section from the path
+        const pathParts = parentPath.split("/");
+        const language = pathParts[0]; // e.g. 'en'
+        const section = pathParts[1]; // e.g. 'docs'
+
+        // Create default content for the new file
+        const fileId = newItemName.replace(".json", "");
         const defaultContent = {
-          id: newItemName.replace('.json', ''),
-          title: 'New Article',
-          description: 'Add your description here',
-          author: 'Anonymous',
-          date: new Date().toISOString().split('T')[0],
+          id: fileId,
+          title: fileId
+            .split("_")
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(" "),
+          description: "",
+          author: "Anonymous",
+          date: new Date().toISOString().split("T")[0],
           blocks: [],
         };
 
         const fileResponse = await fetch(`${API_URL}/api/files`, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             path: fullPath,
@@ -247,16 +274,22 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
 
         if (!fileResponse.ok) {
           const errorText = await fileResponse.text();
-          console.error('File creation failed:', errorText);
+          console.error("File creation failed:", errorText);
           throw new Error(`Failed to create file: ${errorText}`);
         }
 
-        await updateMetadata(parentPath, newItemName, defaultContent.title);
-      } else if (newItemType === 'folder') {
+        await updateMetadata(
+          language,
+          section,
+          pathParts,
+          fileId,
+          defaultContent
+        );
+      } else if (newItemType === "folder") {
         const folderResponse = await fetch(`${API_URL}/api/files`, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             path: fullPath,
@@ -266,7 +299,7 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
 
         if (!folderResponse.ok) {
           const errorText = await folderResponse.text();
-          console.error('Folder creation failed:', errorText);
+          console.error("Folder creation failed:", errorText);
           throw new Error(`Failed to create folder: ${errorText}`);
         }
       }
@@ -274,65 +307,92 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
       const updatedTree = addItemToTree(fileTree, newItemParent, newItem);
       setFileTree(updatedTree);
 
-      if (newItemType === 'folder') {
+      if (newItemType === "folder") {
         setExpandedFolders((prev) => new Set(prev).add(newItem.id));
       }
 
       cancelNewItem();
     } catch (error) {
-      console.error('addNewItem: Error creating item:', error);
+      console.error("addNewItem: Error creating item:", error);
     }
   };
 
   const updateMetadata = async (
-    parentPath: string,
-    newFileName: string,
-    newFileTitle: string
+    language: string,
+    section: string,
+    pathParts: string[],
+    fileId: string,
+    defaultContent: any
   ) => {
-    const metaPath = `${parentPath}/_meta.json`;
     try {
-      const metaResponse = await fetch(
-        `${API_URL}/api/files?path=${encodeURIComponent(metaPath)}`,
-        {
-          method: 'GET',
-        }
+      const rootMetaPath = `${language}/${section}/_meta.json`;
+      const rootMetaResponse = await fetch(
+        `${API_URL}/api/files?path=${encodeURIComponent(rootMetaPath)}`
       );
 
-      if (!metaResponse.ok) {
-        throw new Error('Failed to read metadata');
-      }
+      if (rootMetaResponse.ok) {
+        const rootMeta = (await rootMetaResponse.json()) as RootMeta;
 
-      const existingMeta = await metaResponse.json();
-      const newFileId = newFileName.replace('.json', '');
+        // Navigate through the path to find the right section
+        let currentSection = rootMeta;
+        for (let i = 2; i < pathParts.length; i++) {
+          const part = pathParts[i];
 
-      const updatedMeta = {
-        ...existingMeta,
-        [newFileId]: {
-          title: newFileTitle,
-          path: `/articles/${newFileId}`,
-        },
-      };
+          // Convert path to camelCase for section key
+          const sectionKey = part
+            .replace(/-/g, " ")
+            .split(" ")
+            .map((word, index) => {
+              const capitalized = word.charAt(0).toUpperCase() + word.slice(1);
+              return index === 0 ? capitalized.toLowerCase() : capitalized;
+            })
+            .join("");
 
-      const updateMetaResponse = await fetch(`${API_URL}/api/files`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          path: metaPath,
-          content: updatedMeta,
-        }),
-      });
+          // Create section if it doesn't exist
+          if (!currentSection[sectionKey]) {
+            const newSection: MetaItem = {
+              title: part
+                .split("-")
+                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(" "),
+              items: {},
+            };
+            currentSection[sectionKey] = newSection;
+          }
 
-      if (!updateMetaResponse.ok) {
-        throw new Error('Failed to update metadata');
+          // Move to items object for next iteration
+          const section = currentSection[sectionKey] as MetaItem;
+          const items = section?.items;
+          if (!items) {
+            currentSection[sectionKey] = {
+              ...section,
+              items: {},
+            };
+            currentSection = currentSection[sectionKey].items!;
+          } else {
+            currentSection = items;
+          }
+        }
+
+        // Add the new file entry
+        currentSection[fileId] = {
+          title: defaultContent.title,
+          path: `/${section}/${pathParts.slice(2).join("/")}${
+            pathParts.slice(2).length > 0 ? "/" : ""
+          }${fileId}`,
+        };
+        // Save updated root meta
+        await fetch(`${API_URL}/api/files`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            path: rootMetaPath,
+            content: rootMeta,
+          }),
+        });
       }
     } catch (error) {
-      console.error('Error updating metadata:', error);
-      if (error instanceof Error) {
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-      }
+      console.error("Error updating metadata:", error);
     }
   };
 
@@ -359,7 +419,7 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       addNewItem();
     }
   };
@@ -367,10 +427,10 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
     e: KeyboardEvent<HTMLInputElement>,
     nodeId: string
   ) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       handleRename(nodeId);
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       cancelRename();
     }
   };
@@ -409,44 +469,83 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
     oldFileName: string,
     newFileName: string
   ) => {
-    const metaPath = `${parentPath}/_meta.json`;
     try {
-      const metaResponse = await fetch(
-        `${API_URL}/api/files?path=${encodeURIComponent(metaPath)}`,
-        { method: 'GET' }
+      // Extract the language and section from the parent path
+      const pathParts = parentPath.split("/");
+      const language = pathParts[0];
+      const section = pathParts[1];
+
+      // Get the root meta file
+      const rootMetaPath = `${language}/${section}/_meta.json`;
+      const rootMetaResponse = await fetch(
+        `${API_URL}/api/files?path=${encodeURIComponent(rootMetaPath)}`
       );
 
-      if (!metaResponse.ok) {
-        throw new Error('Failed to read metadata');
+      if (!rootMetaResponse.ok) {
+        throw new Error("Failed to read metadata");
       }
 
-      const metadata = await metaResponse.json();
-      const oldFileId = oldFileName.replace('.json', '');
-      const newFileId = newFileName.replace('.json', '');
+      const rootMeta = (await rootMetaResponse.json()) as RootMeta;
+      const oldFileId = oldFileName.replace(".json", "");
+      const newFileId = newFileName.replace(".json", "");
 
-      if (metadata[oldFileId]) {
-        metadata[newFileId] = {
-          ...metadata[oldFileId],
-          path: `/articles/${newFileId}`,
+      // Navigate through the path to find the right section
+      let currentSection = rootMeta;
+      for (let i = 2; i < pathParts.length; i++) {
+        const part = pathParts[i];
+
+        // Convert path to camelCase for section key
+        const sectionKey = part
+          .replace(/-/g, " ")
+          .split(" ")
+          .map((word, index) => {
+            const capitalized = word.charAt(0).toUpperCase() + word.slice(1);
+            return index === 0 ? capitalized.toLowerCase() : capitalized;
+          })
+          .join("");
+
+        // Move to items object for next iteration
+        const section = currentSection[sectionKey] as MetaItem;
+        if (section?.items) {
+          currentSection = section.items;
+        }
+      }
+
+      // Update the metadata entry
+      const oldEntry = currentSection[oldFileId];
+      if (oldEntry && typeof oldEntry === "object" && "title" in oldEntry) {
+        // Construct the new path
+        const pathWithoutLanguage = pathParts.slice(2).join("/");
+        const newPath = `/${section}/${pathWithoutLanguage}${
+          pathWithoutLanguage ? "/" : ""
+        }${newFileId}`;
+
+        // Create new entry with updated path and existing properties
+        currentSection[newFileId] = {
+          ...(oldEntry as MetaItem),
+          path: newPath,
         };
-        delete metadata[oldFileId];
 
+        // Remove old entry
+        delete currentSection[oldFileId];
+
+        // Save updated root meta
         await fetch(`${API_URL}/api/files`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            path: metaPath,
-            content: metadata,
+            path: rootMetaPath,
+            content: rootMeta,
           }),
         });
       }
     } catch (error) {
-      console.error('Error updating metadata:', error);
+      console.error("Error updating metadata for rename:", error);
     }
   };
 
   const filterTreeByLanguage = (nodes: FileNode[]): FileNode[] => {
-    if (selectedLanguage === 'all') return nodes;
+    if (selectedLanguage === "all") return nodes;
 
     const languageFolder = nodes.find((node) => node.name === selectedLanguage);
     if (languageFolder && languageFolder.children) {
@@ -456,148 +555,166 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
     return [];
   };
 
-  const renderFileTree = (nodes: FileNode[], level: number = 0) => {
+  const renderFileTree = (
+    nodes: FileNode[],
+    level: number = 0,
+    parentId?: string
+  ) => {
     return (
-      <ul className={`space-y-0.5 ${level > 0 ? 'ml-3 pl-3' : ''}`}>
-        {nodes.map((node, index) => (
-          <React.Fragment key={node.id}>
-            <li className="relative">
-              <FileExplorerContextMenu
-                onNewFile={() => startNewItem(node.id, 'file')}
-                onNewFolder={() => startNewItem(node.id, 'folder')}
-                onDelete={() => deleteItem(node.id, node.name, node.type)}
-                onRename={() => startRename(node.id, node.name)}
-                isFolder={node.type === 'folder'}
-                disableDelete={
-                  node.type === 'folder' &&
-                  (level === 0 || // Language folders (en, es, etc)
-                    (level === 1 &&
-                      ['docs', 'articles', 'api'].includes(node.name))) // Protected subfolders
-                }
-                disableRename={
-                  node.type === 'folder' &&
-                  (level === 0 || // Language folders (en, es, etc)
-                    (level === 1 &&
-                      ['docs', 'articles', 'api'].includes(node.name))) // Protected subfolders
-                }
-              >
-                <div className="flex items-center justify-between py-0.5 pr-2">
-                  <div className="flex items-center flex-grow min-w-0">
-                    {node.type === 'folder' && (
-                      <button
-                        onClick={() => toggleFolder(node.id)}
-                        className="mr-1 focus:outline-none"
-                        aria-label={
-                          expandedFolders.has(node.id)
-                            ? 'Collapse folder'
-                            : 'Expand folder'
-                        }
-                      >
-                        {expandedFolders.has(node.id) ? (
-                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                        )}
-                      </button>
-                    )}
-                    <div className="mb-1">
-                      {node.type === 'folder' ? (
-                        ''
-                      ) : (
-                        <div className="mr-1">
-                          <File className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-grow min-w-0 pr-2">
-                      {renamingNode === node.id ? (
-                        <Input
-                          ref={renameInputRef}
-                          type="text"
-                          value={newName}
-                          onChange={(e) => setNewName(e.target.value)}
-                          onKeyDown={(e) => handleRenameKeyDown(e, node.id)}
-                          onBlur={() => handleRename(node.id)}
-                          className="h-6 text-sm py-0 px-1"
-                        />
-                      ) : (
-                        <span
-                          className={`text-sm ${
-                            node.type === 'folder' ? 'font-semibold' : ''
-                          } text-foreground hover:text-primary transition-colors duration-200 cursor-pointer truncate inline-block max-w-full`}
-                          onClick={() =>
-                            node.type === 'file'
-                              ? handleFileClick(node)
-                              : toggleFolder(node.id)
+      <ul className={`space-y-0.5 ${level > 0 ? "ml-3 pl-3" : ""}`}>
+        {nodes
+          .filter((node) => node.name !== "api")
+          .map((node, index) => (
+            <React.Fragment key={node.id}>
+              <li className="relative">
+                <FileExplorerContextMenu
+                  onNewFile={() => startNewItem(node.id, "file")}
+                  onNewFolder={() => startNewItem(node.id, "folder")}
+                  onDelete={() => deleteItem(node.id, node.name, node.type)}
+                  onRename={() => startRename(node.id, node.name)}
+                  isFolder={node.type === "folder"}
+                  disableDelete={
+                    node.type === "folder" &&
+                    (level === 0 || // Language folders (en, es, etc)
+                      (level === 1 &&
+                        ["docs", "articles", "api"].includes(node.name))) // Protected subfolders
+                  }
+                  disableRename={
+                    node.type === "folder" &&
+                    (level === 0 || // Language folders (en, es, etc)
+                      (level === 1 &&
+                        ["docs", "articles", "api"].includes(node.name))) // Protected subfolders
+                  }
+                >
+                  <div className="flex items-center justify-between py-0.5 pr-2">
+                    <div className="flex items-center flex-grow min-w-0">
+                      {node.type === "folder" && (
+                        <button
+                          onClick={() => toggleFolder(node.id)}
+                          className="mr-1 focus:outline-none"
+                          aria-label={
+                            expandedFolders.has(node.id)
+                              ? "Collapse folder"
+                              : "Expand folder"
                           }
                         >
-                          {node.type === 'file'
-                            ? node.name.split('.').slice(0, -1).join('.')
-                            : node.name}
-                        </span>
+                          {expandedFolders.has(node.id) ? (
+                            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                          )}
+                        </button>
                       )}
-                    </div>
-                  </div>
-                  <FileExplorerDropdownMenu
-                    onNewFile={() => startNewItem(node.id, 'file')}
-                    onNewFolder={() => startNewItem(node.id, 'folder')}
-                    onDelete={() => deleteItem(node.id, node.name, node.type)}
-                    onRename={() => startRename(node.id, node.name)}
-                    isFolder={node.type === 'folder'}
-                  />
-                </div>
-              </FileExplorerContextMenu>
-              {node.type === 'folder' && node.children && (
-                <AnimatePresence>
-                  {expandedFolders.has(node.id) && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <div className="mt-1">
-                        {renderFileTree(node.children, level + 1)}
+                      <div className="mb-1">
+                        {node.type === "folder" ? (
+                          ""
+                        ) : (
+                          <div className="mr-1">
+                            <File className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              )}
-              {newItemParent === node.id && (
-                <div className="flex items-center mt-2 pr-8 flex-shrink-0">
-                  <Input
-                    type="text"
-                    ref={inputRef}
-                    value={newItemName}
-                    onChange={(e) => setNewItemName(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={`New ${newItemType}`}
-                    className="h-8 text-sm bg-background text-foreground flex-grow"
-                  />
-                  <Button
-                    onClick={addNewItem}
-                    size="sm"
-                    className="ml-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground"
-                  >
-                    <Check className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    onClick={cancelNewItem}
-                    size="sm"
-                    variant="ghost"
-                    className="ml-1 text-muted-foreground"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
-            </li>
-            <InsertionPoint
-              onNewFile={() => startNewItem(node.id, 'file')}
-              onNewFolder={() => startNewItem(node.id, 'folder')}
-            />
-          </React.Fragment>
-        ))}
+                      <div className="flex-grow min-w-0 pr-2">
+                        {renamingNode === node.id ? (
+                          <Input
+                            ref={renameInputRef}
+                            type="text"
+                            value={newName}
+                            onChange={(e) => setNewName(e.target.value)}
+                            onKeyDown={(e) => handleRenameKeyDown(e, node.id)}
+                            onBlur={() => handleRename(node.id)}
+                            className="h-6 text-sm py-0 px-1"
+                          />
+                        ) : (
+                          <span
+                            className={`text-sm ${
+                              node.type === "folder" ? "font-semibold" : ""
+                            } text-foreground hover:text-primary transition-colors duration-200 cursor-pointer truncate inline-block max-w-full`}
+                            onClick={() =>
+                              node.type === "file"
+                                ? handleFileClick(node)
+                                : toggleFolder(node.id)
+                            }
+                          >
+                            {node.type === "file"
+                              ? node.name.split(".").slice(0, -1).join(".")
+                              : node.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <FileExplorerDropdownMenu
+                      onNewFile={() => startNewItem(node.id, "file")}
+                      onNewFolder={() => startNewItem(node.id, "folder")}
+                      onDelete={() => deleteItem(node.id, node.name, node.type)}
+                      onRename={() => startRename(node.id, node.name)}
+                      isFolder={node.type === "folder"}
+                      disableDelete={
+                        node.type === "folder" &&
+                        (level === 0 || // Language folders (en, es, etc)
+                          (level === 1 &&
+                            ["docs", "articles", "api"].includes(node.name))) // Protected subfolders
+                      }
+                      disableRename={
+                        node.type === "folder" &&
+                        (level === 0 || // Language folders (en, es, etc)
+                          (level === 1 &&
+                            ["docs", "articles", "api"].includes(node.name))) // Protected subfolders
+                      }
+                    />
+                  </div>
+                </FileExplorerContextMenu>
+                {node.type === "folder" && node.children && (
+                  <AnimatePresence>
+                    {expandedFolders.has(node.id) && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <div className="mt-1">
+                          {renderFileTree(node.children, level + 1, node.id)}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                )}
+                {newItemParent === node.id && (
+                  <div className="flex items-center mt-2 pr-8 flex-shrink-0">
+                    <Input
+                      type="text"
+                      ref={inputRef}
+                      value={newItemName}
+                      onChange={(e) => setNewItemName(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={`New ${newItemType}`}
+                      className="h-8 text-sm bg-background text-foreground flex-grow"
+                    />
+                    <Button
+                      onClick={addNewItem}
+                      size="sm"
+                      className="ml-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground"
+                    >
+                      <Check className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      onClick={cancelNewItem}
+                      size="sm"
+                      variant="ghost"
+                      className="ml-1 text-muted-foreground"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+              </li>
+              <InsertionPoint
+                onNewFile={() => startNewItem(parentId || node.id, "file")}
+                onNewFolder={() => startNewItem(parentId || node.id, "folder")}
+              />
+            </React.Fragment>
+          ))}
       </ul>
     );
   };
@@ -608,19 +725,19 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
     let rootNodes: FileNode[] = [];
 
     Object.keys(content).forEach((path) => {
-      const parts = path.split('/');
-      let currentPath = '';
+      const parts = path.split("/");
+      let currentPath = "";
 
       parts.forEach((part, index) => {
         const isFile = index === parts.length - 1;
         const fullPath = currentPath ? `${currentPath}/${part}` : part;
-        const nodeId = fullPath.replace(/[/.]/g, '_');
+        const nodeId = fullPath.replace(/[/.]/g, "_");
 
         if (!tree[fullPath]) {
           tree[fullPath] = {
             id: nodeId,
             name: part,
-            type: isFile ? 'file' : 'folder',
+            type: isFile ? "file" : "folder",
             children: isFile ? undefined : [],
           };
         }
@@ -652,11 +769,11 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
           ...node,
           children: node.children
             ? filterMetaFiles(
-                node.children.filter((child) => child.name !== '_meta.json')
+                node.children.filter((child) => child.name !== "_meta.json")
               )
             : undefined,
         }))
-        .filter((node) => node.name !== '_meta.json');
+        .filter((node) => node.name !== "_meta.json");
     };
 
     return filterMetaFiles(rootNodes);
@@ -665,10 +782,10 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
   const deleteItem = async (
     nodeId: string,
     nodeName: string,
-    nodeType: 'file' | 'folder'
+    nodeType: "file" | "folder"
   ) => {
     const confirmMessage = `Are you sure you want to delete this ${nodeType}${
-      nodeType === 'folder' ? ' and all its contents' : ''
+      nodeType === "folder" ? " and all its contents" : ""
     }?`;
     if (!confirm(confirmMessage)) {
       return;
@@ -676,15 +793,16 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
 
     const fullPath = getNodeFullPath(fileTree, nodeId);
     if (!fullPath) {
-      console.error('Could not find full path for node');
+      console.error("Could not find full path for node");
       return;
     }
 
     try {
-      const response = await fetch('/api/files', {
-        method: 'DELETE',
+      console.log("Deleting item from tree:", { nodeName, fullPath });
+      const response = await fetch(`${API_URL}/api/files`, {
+        method: "DELETE",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           path: fullPath,
@@ -693,13 +811,65 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete item');
+        throw new Error("Failed to delete item");
       }
+      // Update metadata
+      const pathParts = fullPath.split("/");
+      const language = pathParts[0];
+      const section = pathParts[1];
+      const fileId = nodeName.replace(".json", "");
 
+      // Get current metadata
+      const rootMetaPath = `${language}/${section}/_meta.json`;
+      const metaResponse = await fetch(
+        `${API_URL}/api/files?path=${encodeURIComponent(rootMetaPath)}`
+      );
+
+      if (metaResponse.ok) {
+        const rootMeta = (await metaResponse.json()) as RootMeta;
+
+        // Navigate through the path to find the right section
+        let currentSection = rootMeta;
+        for (let i = 2; i < pathParts.length - 1; i++) {
+          const part = pathParts[i];
+
+          // Convert path to camelCase for section key
+          const sectionKey = part
+            .replace(/-/g, " ")
+            .split(" ")
+            .map((word, index) => {
+              const capitalized = word.charAt(0).toUpperCase() + word.slice(1);
+              return index === 0 ? capitalized.toLowerCase() : capitalized;
+            })
+            .join("");
+
+          if (
+            currentSection[sectionKey] &&
+            (currentSection[sectionKey] as MetaItem).items
+          ) {
+            currentSection = (currentSection[sectionKey] as MetaItem).items!;
+          }
+        }
+
+        // Remove the entry
+        if (nodeType === "file" && currentSection[fileId]) {
+          delete currentSection[fileId];
+
+          // Save updated metadata
+          await fetch(`${API_URL}/api/files`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              path: rootMetaPath,
+              content: rootMeta,
+            }),
+          });
+        }
+      }
       const updatedTree = deleteItemFromTree(fileTree, nodeId);
       setFileTree(updatedTree);
     } catch (error) {
-      console.error('Error deleting item:', error);
+      console.error("Error deleting item:", error);
     }
   };
 
@@ -715,6 +885,21 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
     });
   };
 
+  // Use useImperativeHandle to expose methods
+  useImperativeHandle(ref, () => ({
+    deleteItem: (
+      nodeId: string,
+      nodeName: string,
+      nodeType: "file" | "folder"
+    ) => deleteItem(nodeId, nodeName, nodeType),
+    handleRename: (nodeId: string) => {
+      const node = findNodeById(fileTree, nodeId);
+      if (node) {
+        startRename(nodeId, node.name);
+      }
+    },
+  }));
+
   return (
     <div className="px-6 py-6 bg-background min-h-screen text-foreground min-w-[150px] max-w-[300px] flex-shrink-0 w-full">
       <div className="flex flex-col space-y-4 mb-6">
@@ -722,7 +907,7 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
           Project Explorer
         </h1>
         <div className="w-full min-w-0">
-          {' '}
+          {" "}
           {/* Container for LanguageSelector */}
           <LanguageSelector
             value={selectedLanguage}
@@ -740,4 +925,7 @@ export default function FileExplorer({ onFileSelect }: FileExplorerProps) {
       </motion.div>
     </div>
   );
-}
+});
+
+FileExplorer.displayName = "FileExplorer";
+export default FileExplorer;

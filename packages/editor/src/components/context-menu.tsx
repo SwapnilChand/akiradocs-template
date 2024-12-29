@@ -1,11 +1,11 @@
-import * as React from 'react';
+import * as React from "react";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-} from '@/components/ui/context-menu';
-import { File, Folder, Trash2, Pencil } from 'lucide-react';
+} from "@/components/ui/context-menu";
+import { File, Folder, Trash2, Pencil } from "lucide-react";
 
 interface FileExplorerContextMenuProps {
   children: React.ReactNode;

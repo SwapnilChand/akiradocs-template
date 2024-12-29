@@ -22,6 +22,7 @@ import {
 } from "@dnd-kit/sortable";
 import { SortableBlock } from "@/components/blocks/SortableBlock";
 import { SEO } from "@/components/layout/SEO";
+import { jsPDF } from "jspdf";
 
 type Block = {
   id: string;
@@ -32,9 +33,11 @@ type Block = {
 
 interface EditorProps {
   filePath: string;
+  onDelete: () => void;
+  onRename: () => void;
 }
 
-export function Editor({ filePath }: EditorProps) {
+export function Editor({ filePath, onDelete, onRename }: EditorProps) {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [inputRefs, setInputRefs] = useState<
     React.RefObject<HTMLInputElement>[]
@@ -112,6 +115,28 @@ export function Editor({ filePath }: EditorProps) {
     }
   };
 
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+
+    let yPosition = 10;
+
+    blocks.forEach((block) => {
+      if (block.type === "paragraph") {
+        doc.setFontSize(12);
+        doc.text(block.content, 10, yPosition);
+        yPosition += 10;
+      }
+      // } else if (block.type === 'header') {
+      //   doc.setFontSize(16);
+      //   doc.text(block.content, 10, yPosition);
+      //   yPosition += 15; // More spacing for headers
+      // }
+      // Add more conditions for different block types as needed
+    });
+
+    doc.save("exported_data.pdf");
+  };
+
   const addBlock = (afterId: string) => {
     const newBlock: Block = {
       id: Date.now().toString(),
@@ -149,6 +174,7 @@ export function Editor({ filePath }: EditorProps) {
       }
     }, 0);
   };
+
   const updateBlock = (id: string, content: string) => {
     setBlocks(
       blocks.map((block) => {
@@ -240,7 +266,14 @@ export function Editor({ filePath }: EditorProps) {
           description={subtitle}
           noIndex={true}
         />
-        <TitleBar onSave={handleSave} isSaving={isSaving} />
+        <TitleBar
+          filePath={filePath}
+          onSave={handleSave}
+          isSaving={isSaving}
+          onDelete={onDelete}
+          onRename={onRename}
+          onExport={exportToPDF}
+        />
         <div className="prose prose-lg max-w-none">
           <ArticleHeaders
             title={title}
@@ -254,23 +287,28 @@ export function Editor({ filePath }: EditorProps) {
               items={blocks}
               strategy={verticalListSortingStrategy}
             >
-              {blocks.map((block) => (
-                <SortableBlock
-                  key={block.id}
-                  block={block}
-                  updateBlock={updateBlock}
-                  changeBlockType={changeBlockType}
-                  addBlock={addBlock}
-                  deleteBlock={deleteBlock}
-                  showPreview={showPreview}
-                  isChangeTypeActive={activeChangeTypeId === block.id}
-                  setActiveChangeTypeId={setActiveChangeTypeId}
-                  updateBlockMetadata={updateBlockMetadata}
-                  inputRef={
-                    inputRefs[blocks.findIndex((b) => b.id === block.id)]
-                  }
-                />
-              ))}
+              {blocks.map(
+                (block) => (
+                  console.log(block),
+                  (
+                    <SortableBlock
+                      key={block.id}
+                      block={block}
+                      updateBlock={updateBlock}
+                      changeBlockType={changeBlockType}
+                      addBlock={addBlock}
+                      deleteBlock={deleteBlock}
+                      showPreview={showPreview}
+                      isChangeTypeActive={activeChangeTypeId === block.id}
+                      setActiveChangeTypeId={setActiveChangeTypeId}
+                      updateBlockMetadata={updateBlockMetadata}
+                      inputRef={
+                        inputRefs[blocks.findIndex((b) => b.id === block.id)]
+                      }
+                    />
+                  )
+                )
+              )}
             </SortableContext>
           </DndContext>
           {blocks.length === 0 && !showPreview && (

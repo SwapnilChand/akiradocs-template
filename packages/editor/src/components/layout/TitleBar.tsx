@@ -1,22 +1,29 @@
 "use client";
 
-import { ArrowLeft, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { MenuToggle } from "@/components/ui/MenuToggle";
 
 interface TitleBarProps {
+  filePath: string;
   onSave: () => void;
   isSaving?: boolean;
+  onDelete: () => void;
+  onRename: () => void;
+  onExport: () => void;
 }
 
-export function TitleBar({ onSave, isSaving = false }: TitleBarProps) {
-  const pathname = usePathname();
-
-  // Extract filename from URL, remove .json extension, and capitalize
-  const filename =
-    pathname
+export function TitleBar({
+  filePath,
+  onSave,
+  isSaving = false,
+  onDelete,
+  onRename,
+  onExport,
+}: TitleBarProps) {
+  const fileName =
+    filePath
       ?.split("/")
       .pop()
       ?.replace(".json", "")
@@ -25,27 +32,23 @@ export function TitleBar({ onSave, isSaving = false }: TitleBarProps) {
       .join(" ") || "Untitled";
 
   return (
-    <div className="flex justify-between items-center mb-8">
-      <div className="flex items-center gap-3">
-        {/* <Link href="/editMode">
-          <Button variant="ghost" size="icon" className="hover:bg-accent">
-            <ArrowLeft className="w-4 h-4" />
-            <span className="sr-only">Back to editor</span>
-          </Button>
-        </Link> */}
-        {/* <h1 className="text-lg font-medium">{filename}</h1> */}
-      </div>
-
+    <div className="flex justify-between items-center mb-8 mr-8">
+      <div>{fileName}</div>
       <div className="flex items-center space-x-4">
         <Button
           onClick={onSave}
           disabled={isSaving}
           className="flex items-center gap-2"
         >
-          <Save className="w-4 h-4" />
+          <Save />
           {isSaving ? "Saving..." : "Save"}
         </Button>
         <ThemeToggle />
+        <MenuToggle
+          onDelete={onDelete}
+          onRename={onRename}
+          onExport={onExport}
+        />
       </div>
     </div>
   );
