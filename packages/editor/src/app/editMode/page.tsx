@@ -26,6 +26,8 @@ interface FileExplorerRef {
 export default function EditModePage() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<FileNode | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState("all");
+
   const fileExplorerRef = useRef<FileExplorerRef>(null);
 
   const handleDelete = () => {
@@ -53,12 +55,18 @@ export default function EditModePage() {
     setSelectedNode(node);
   };
 
+  const handleLanguageChange = (language: string) => {
+    setSelectedLanguage(language);
+  };
+
   return (
     <ResizablePanelGroup direction="horizontal">
       <ResizablePanel defaultSize={20} minSize={15} maxSize={40}>
         <div className="h-full custom-scrollbar overflow-auto">
           <FileExplorer
             ref={fileExplorerRef}
+            selectedLanguage={selectedLanguage}
+            onLanguageChange={handleLanguageChange}
             onFileSelect={(filePath, node) => handleFileSelect(filePath, node)}
           />
         </div>
@@ -68,6 +76,8 @@ export default function EditModePage() {
         <div className="h-full custom-scrollbar overflow-auto">
           {selectedFile ? (
             <Editor
+              selectedLanguage={selectedLanguage}
+              onLanguageChange={setSelectedLanguage}
               filePath={selectedFile}
               onDelete={handleDelete}
               onRename={handleRename}

@@ -33,11 +33,19 @@ type Block = {
 
 interface EditorProps {
   filePath: string;
+  selectedLanguage: string;
+  onLanguageChange: (language: string) => void;
   onDelete: () => void;
   onRename: () => void;
 }
 
-export function Editor({ filePath, onDelete, onRename }: EditorProps) {
+export function Editor({
+  filePath,
+  onDelete,
+  onRename,
+  selectedLanguage,
+  onLanguageChange,
+}: EditorProps) {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [inputRefs, setInputRefs] = useState<
     React.RefObject<HTMLInputElement>[]
@@ -51,27 +59,76 @@ export function Editor({ filePath, onDelete, onRename }: EditorProps) {
     null
   );
 
+  const [currentFilePath, setCurrentFilePath] = useState(filePath);
+
+  const getLanguageFilePath = (basePath: string, language: string) => {
+    if (language === "all") return basePath;
+
+    const parts = basePath.split("/");
+    const tree: { [key: string]: any } = {};
+
+    let currentNode: { [key: string]: any } = tree;
+    parts.forEach((part) => {
+      if (!currentNode[part]) {
+        currentNode[part] = {};
+      }
+      currentNode = currentNode[part];
+    });
+
+    // Replace the language node
+    const languageNode = Object.keys(tree)[0];
+    const newTree: { [key: string]: any } = { [language]: tree[languageNode] };
+
+    // Transform the tree back to a path
+    const newPath =
+      Object.keys(newTree).join("/") + "/" + parts.slice(1).join("/");
+
+    return newPath;
+  };
+
   useEffect(() => {
     const loadFileContent = async () => {
-      if (!filePath) {
-        setBlocks([{ id: "1", type: "paragraph", content: "", metadata: {} }]);
-        setIsLoading(false);
-        return;
-      }
+      setIsLoading(true);
+      const newFilePath = getLanguageFilePath(filePath, selectedLanguage);
+      setCurrentFilePath(newFilePath); // Update the current file path
 
       try {
         const response = await fetch(
-          `/api/files?path=${encodeURIComponent(filePath)}`
+          `/api/files?path=${encodeURIComponent(newFilePath)}`
         );
-        if (!response.ok) throw new Error("Failed to load file");
-        const data = await response.json();
-        setTitle(data.title || "");
-        setSubtitle(data.description || "");
-        setBlocks(
-          data.blocks || [
-            { id: "1", type: "paragraph", content: "", metadata: {} },
-          ]
-        );
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            // If the file doesn't exist in the selected language, reload the original file
+            const originalResponse = await fetch(
+              `/api/files?path=${encodeURIComponent(filePath)}`
+            );
+
+            if (!originalResponse.ok) {
+              throw new Error("Failed to load file");
+            }
+
+            const data = await originalResponse.json();
+            setTitle(data.title || "");
+            setSubtitle(data.description || "");
+            setBlocks(
+              data.blocks || [
+                { id: "1", type: "paragraph", content: "", metadata: {} },
+              ]
+            );
+          } else {
+            throw new Error("Failed to load file");
+          }
+        } else {
+          const data = await response.json();
+          setTitle(data.title || "");
+          setSubtitle(data.description || "");
+          setBlocks(
+            data.blocks || [
+              { id: "1", type: "paragraph", content: "", metadata: {} },
+            ]
+          );
+        }
       } catch (error) {
         console.error("Error loading file:", error);
         setBlocks([{ id: "1", type: "paragraph", content: "", metadata: {} }]);
@@ -81,10 +138,9 @@ export function Editor({ filePath, onDelete, onRename }: EditorProps) {
     };
 
     loadFileContent();
-  }, [filePath]);
-
+  }, [filePath, selectedLanguage]);
   const handleSave = async () => {
-    if (!filePath) {
+    if (!currentFilePath) {
       console.error("No file path specified");
       return;
     }
@@ -114,7 +170,6 @@ export function Editor({ filePath, onDelete, onRename }: EditorProps) {
       setIsSaving(false);
     }
   };
-
   const exportToPDF = () => {
     const doc = new jsPDF({
       unit: "pt",
@@ -610,56 +665,72 @@ export function Editor({ filePath, onDelete, onRename }: EditorProps) {
           onRename={onRename}
           onExport={exportToPDF}
         />
-        <div className="prose prose-lg max-w-none">
-          <ArticleHeaders
-            title={title}
-            setTitle={setTitle}
-            subtitle={subtitle}
-            setSubtitle={setSubtitle}
-            showPreview={showPreview}
-          />
-          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-            <SortableContext
-              items={blocks}
-              strategy={verticalListSortingStrategy}
-            >
-              {blocks.map(
-                (block) => (
-                  console.log(block),
-                  (
-                    <SortableBlock
-                      key={block.id}
-                      block={block}
-                      updateBlock={updateBlock}
-                      changeBlockType={changeBlockType}
-                      addBlock={addBlock}
-                      deleteBlock={deleteBlock}
-                      showPreview={showPreview}
-                      isChangeTypeActive={activeChangeTypeId === block.id}
-                      setActiveChangeTypeId={setActiveChangeTypeId}
-                      updateBlockMetadata={updateBlockMetadata}
-                      inputRef={
-                        inputRefs[blocks.findIndex((b) => b.id === block.id)]
-                      }
-                    />
-                  )
-                )
-              )}
-            </SortableContext>
-          </DndContext>
-          {blocks.length === 0 && !showPreview && (
-            <div className="flex justify-center my-8">
+        {/* {isLoading ? (
+          <div className="flex justify-center items-center h-screen">
+            <div className="text-gray-500">Loading...</div>
+          </div>
+        ) : blocks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64">
+            <p className="text-gray-500 mb-4">
+              No content available in this language
+            </p>
+            {selectedLanguage !== 'all' && (
               <Button
-                onClick={() => addBlock("new")}
                 variant="outline"
-                className="flex items-center gap-2"
+                onClick={() => setSelectedLanguage('all')}
               >
-                <Plus size={16} />
-                Add Block
+                View in All Languages
               </Button>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        ) : ( */}
+        {currentFilePath && (
+          <div className="prose prose-lg max-w-none">
+            <ArticleHeaders
+              title={title}
+              setTitle={setTitle}
+              subtitle={subtitle}
+              setSubtitle={setSubtitle}
+              showPreview={showPreview}
+            />
+            <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+              <SortableContext
+                items={blocks}
+                strategy={verticalListSortingStrategy}
+              >
+                {blocks.map((block) => (
+                  <SortableBlock
+                    key={block.id}
+                    block={block}
+                    updateBlock={updateBlock}
+                    changeBlockType={changeBlockType}
+                    addBlock={addBlock}
+                    deleteBlock={deleteBlock}
+                    showPreview={showPreview}
+                    isChangeTypeActive={activeChangeTypeId === block.id}
+                    setActiveChangeTypeId={setActiveChangeTypeId}
+                    updateBlockMetadata={updateBlockMetadata}
+                    inputRef={
+                      inputRefs[blocks.findIndex((b) => b.id === block.id)]
+                    }
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
+            {blocks.length === 0 && !showPreview && (
+              <div className="flex justify-center my-8">
+                <Button
+                  onClick={() => addBlock("new")}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Plus size={16} />
+                  Add Block
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
