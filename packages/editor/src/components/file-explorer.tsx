@@ -287,6 +287,13 @@ const FileExplorer = forwardRef(
             console.error("Folder creation failed:", errorText);
             throw new Error(`Failed to create folder: ${errorText}`);
           }
+          const emptyDirs = JSON.parse(
+            localStorage.getItem("emptyDirectories") || "[]"
+          );
+          if (!emptyDirs.includes(fullPath)) {
+            emptyDirs.push(fullPath);
+            localStorage.setItem("emptyDirectories", JSON.stringify(emptyDirs));
+          }
         }
 
         const updatedTree = addItemToTree(fileTree, newItemParent, newItem);
@@ -754,6 +761,47 @@ const FileExplorer = forwardRef(
         });
       });
 
+      // Add any empty directories from localStorage
+      const emptyDirs = JSON.parse(
+        localStorage.getItem("emptyDirectories") || "[]"
+      );
+      emptyDirs.forEach((path: string) => {
+        const parts = path.split("/");
+        let currentPath = "";
+
+        parts.forEach((part, index) => {
+          const fullPath = currentPath ? `${currentPath}/${part}` : part;
+          const nodeId = fullPath.replace(/[/.]/g, "_");
+
+          if (!tree[fullPath]) {
+            tree[fullPath] = {
+              id: nodeId,
+              name: part,
+              type: "folder",
+              children: [],
+            };
+
+            if (index === 0) {
+              if (!rootNodes.find((node) => node.id === nodeId)) {
+                rootNodes.push(tree[fullPath]);
+              }
+            } else {
+              const parentPath = currentPath;
+              const parent = tree[parentPath];
+              if (
+                parent &&
+                parent.children &&
+                !parent.children.find((child) => child.id === nodeId)
+              ) {
+                parent.children.push(tree[fullPath]);
+              }
+            }
+          }
+
+          currentPath = fullPath;
+        });
+      });
+
       // Filter out _meta.json files
       const filterMetaFiles = (nodes: FileNode[]): FileNode[] => {
         return nodes
@@ -805,6 +853,18 @@ const FileExplorer = forwardRef(
         if (!response.ok) {
           throw new Error("Failed to delete item");
         }
+
+        if (nodeType === "folder") {
+          const emptyDirs = JSON.parse(
+            localStorage.getItem("emptyDirectories") || "[]"
+          );
+          const index = emptyDirs.indexOf(fullPath);
+          if (index > -1) {
+            emptyDirs.splice(index, 1);
+            localStorage.setItem("emptyDirectories", JSON.stringify(emptyDirs));
+          }
+        }
+
         // Update metadata
         const pathParts = fullPath.split("/");
         const language = pathParts[0];
@@ -836,7 +896,15 @@ const FileExplorer = forwardRef(
               })
               .join("");
 
-            if (
+            // For deletion, we only need to delete the key itself,
+            // whether it's a file or folder
+            if (i === pathParts.length - 2) {
+              // We've reached the parent level where we need to delete
+              if (currentSection[sectionKey]) {
+                delete currentSection[sectionKey];
+              }
+              break;
+            } else if (
               currentSection[sectionKey] &&
               (currentSection[sectionKey] as MetaItem).items
             ) {
@@ -844,21 +912,34 @@ const FileExplorer = forwardRef(
             }
           }
 
-          // Remove the entry
-          if (nodeType === "file" && currentSection[fileId]) {
-            delete currentSection[fileId];
+          // If it's a top-level item
+          if (pathParts.length <= 3) {
+            const key = fileId
+              .replace(/-/g, " ")
+              .split(" ")
+              .map((word, index) => {
+                const capitalized =
+                  word.charAt(0).toUpperCase() + word.slice(1);
+                return index === 0 ? capitalized.toLowerCase() : capitalized;
+              })
+              .join("");
 
-            // Save updated metadata
-            await fetch(`${API_URL}/api/files`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                path: rootMetaPath,
-                content: rootMeta,
-              }),
-            });
+            if (currentSection[key]) {
+              delete currentSection[key];
+            }
           }
+
+          // Save updated metadata
+          await fetch(`${API_URL}/api/files`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              path: rootMetaPath,
+              content: rootMeta,
+            }),
+          });
         }
+
         const updatedTree = deleteItemFromTree(fileTree, nodeId);
         setFileTree(updatedTree);
       } catch (error) {
